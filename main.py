@@ -53,7 +53,7 @@ def get_gaussian_derivative(sigma: float, radius: int | None = None) -> np.ndarr
 
 """
     Apply reflecting padding to a 2D image I by r pixels along a given axis.
-    axis=1 pads left/right; axis=0 pads top/bottom.
+    axis="x" pads left/right; axis="y" pads top/bottom.
 """
 def apply_reflecting_padding(I: np.ndarray, radius: int, axis: str) -> np.ndarray:
     image_height, image_width = I.shape
@@ -131,6 +131,97 @@ def get_image_subcomponents_by_axis(I: np.ndarray, gaussian_kernel_x: np.ndarray
     correlation_result = convolution_correlation(convolution_result, gaussian_kernel_y, axis="y", convolution=False)
     return correlation_result
 
+"""
+    Orientation (degrees) in [0, 180).
+    Uses atan2(I'y, I'x) as required.
+"""
+def gradient_orientation(Ix: np.ndarray, Iy: np.ndarray) -> np.ndarray:
+    theta = np.degrees(np.arctan2(Iy, Ix))   # (-180, 180]
+    theta = np.mod(theta, 180.0)             # [0, 180)
+    return theta
+
+"""
+    Map continuous angles to {0, 45, 90, 135} deg.
+    Bin edges at +/-22.5 degrees around each direction.
+"""
+def quantize_orientation_4(theta_deg: np.ndarray) -> np.ndarray:
+    theta_q = np.zeros_like(theta_deg, dtype=np.uint8)
+    theta_q[(theta_deg >= 22.5)  & (theta_deg < 67.5)]   = 45
+    theta_q[(theta_deg >= 67.5)  & (theta_deg < 112.5)]  = 90
+    theta_q[(theta_deg >= 112.5) & (theta_deg < 157.5)]  = 135
+    return theta_q
+
+"""
+    Non-Maximum Suppression: 4-direction NMS (0/45/90/135).
+    Keep M[y,x] only if it's >= the two neighbors along its quantized gradient direction.
+"""
+def non_maximum_suppression_4dir(M: np.ndarray, theta_q: np.ndarray) -> np.ndarray:
+    m_height, m_width = M.shape
+    output = np.zeros_like(M, dtype=M.dtype)
+    for y in range(1, m_height-1):
+        for x in range(1, m_width-1):
+            m0 = M[y, x]
+            t  = theta_q[y, x]
+            # Left and right pixels comparison
+            if t == 0:
+                m1 = M[y, x-1]; m2 = M[y, x+1]
+            # Northeast and southwest pixel comparison
+            elif t == 45:
+                m1 = M[y-1, x+1]; m2 = M[y+1, x-1]
+            # Up and down pixel comparison
+            elif t == 90:
+                m1 = M[y-1, x]; m2 = M[y+1, x]
+            # Northwest and southeast pixel comparison
+            else:
+                m1 = M[y-1, x-1]; m2 = M[y+1, x+1]
+            # Keeps the center if it's a tie else 0 (suppressed)
+            if m0 >= m1 and m0 >= m2:
+                output[y, x] = m0
+    return output
+
+"""
+    Canny-style hysteresis using connected components.
+    - If relative=True, 'low' and 'high' are fractions of max(M_thin) (e.g. 0.1, 0.2).
+    - If relative=False, they are absolute thresholds in the same units as M_thin.
+    Keeps all 'strong' pixels (>= high) and any 'weak' pixels (>= low) that are
+    connected (by 'connectivity') to a strong pixel.
+    Returns: uint8 image with values {0, 255}.
+"""
+def hysteresis_threshold(M_thin: np.ndarray,
+                         low: float,
+                         high: float,
+                         relative: bool = True,
+                         connectivity: int = 8) -> np.ndarray:
+    M_thin = M_thin.astype(np.float64, copy=False)
+
+    # Handle flat maps safely
+    mmax = float(M_thin.max())
+    if mmax <= 0.0:
+        return np.zeros_like(M_thin, dtype=np.uint8)
+
+    # Choose thresholds
+    if relative:
+        t_low, t_high = low * mmax, high * mmax
+    else:
+        t_low, t_high = float(low), float(high)
+    if t_low > t_high:
+        raise ValueError("hysteresis_threshold: 'low' must be <= 'high'.")
+
+    # Candidate mask (weak OR strong) and strong mask
+    weak_or_strong = (M_thin >= t_low)
+    strong = (M_thin >= t_high)
+
+    # Label connected components among candidates
+    # Note: connectedComponents expects 0/1 uint8 image
+    num_labels, labels = cv2.connectedComponents(weak_or_strong.astype(np.uint8), connectivity=connectivity)
+
+    # Keep only components that contain at least one strong pixel
+    strong_labels = np.unique(labels[strong])
+    keep = np.isin(labels, strong_labels)
+
+    edges = (keep & weak_or_strong)
+    return (edges.astype(np.uint8) * 255)
+
 def test_read_image(I: np.ndarray, gray_image: np.ndarray, image_path: str) -> None:
     print("Grayscale matrix shape:", I.shape)
     print("Matrix dtype:", I.dtype)
@@ -178,8 +269,9 @@ def main():
     Ix = get_image_subcomponents_by_axis(I, dG, G)
     Iy = get_image_subcomponents_by_axis(I, G, dG)
     M = gradient_magnitude(Ix, Iy)
-    test_requirements(I, gray_image, image_path, sigma)
-
+    theta = gradient_orientation(Ix, Iy)
+    theta_q = quantize_orientation_4(theta)
+    M_thin = non_maximum_suppression_4dir(M, theta_q)
 
 if __name__ == "__main__":
     main()
