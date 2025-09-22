@@ -23,7 +23,7 @@
         results (Gaussian smoothing, derivative responses, magnitude, and NMS).
 """
 """---------------------------------------------Imports and Globals--------------------------------------------------"""
-import sys, cv2, numpy as np
+import sys, cv2, numpy as np, matplotlib.pyplot as plt
 from typing import Optional
 """--------------------------------------------Input/Utility Functions-----------------------------------------------"""
 '''
@@ -152,6 +152,28 @@ def to_u8(a: np.ndarray) -> np.ndarray:
         return np.zeros_like(a, dtype=np.uint8)
     a = (a - mn) / (mx - mn)
     return np.clip(a * 255.0, 0, 255).astype(np.uint8)
+'''
+    Function Name: show_gray
+    Description: Utility function to visualize an image in grayscale.
+                 Normalizes the input array into the range [0,1] for
+                 consistent visualization regardless of its numeric scale,
+                 applies a grayscale colormap, sets the plot title,
+                 and hides axes for clarity.
+    Input: ax    (matplotlib.axes.Axes) - axis object to plot on
+           img   (np.ndarray) - image data of arbitrary numeric type
+           title (str)        - title string for the subplot
+    Output: None (renders the image on the provided axis)
+'''
+def show_gray(ax, img, title):
+    img = img.astype(np.float64, copy=False)
+    mn, mx = float(img.min()), float(img.max())
+    if mx - mn < 1e-12:
+        vis = np.zeros_like(img)
+    else:
+        vis = (img - mn) / (mx - mn)
+    ax.imshow(vis, cmap="gray", vmin=0.0, vmax=1.0)
+    ax.set_title(title)
+    ax.axis("off")
 """-------------------------------------Gaussian and Derivative Kernels----------------------------------------------"""
 '''
     Function Name: sigma_radius_check
@@ -439,6 +461,10 @@ def main():
     # Gaussian derivative function calculation
     dG = get_gaussian_derivative(sigma, radius)
 
+    # Convolution calculations of I * G(x) and I * G(y) respectively
+    Igx = convolution_correlation(I, G, axis="x", convolution=True)
+    Igy = convolution_correlation(I, G, axis="y", convolution=True)
+
     # Matrix I subcomponent function calculation
     # Includes the convolution_correlation function call
     Ix = get_image_subcomponents_by_axis(I, dG, G)
@@ -460,26 +486,32 @@ def main():
     # Hysteresis Threshold function calculation
     canny_result = hysteresis(nms, low, high, relative=True)
 
-    # Writing image (a) Gaussian along x
-    cv2.imwrite("output_gaussian_x.png", to_u8(convolution_correlation(I, G, "x", True)))
+    fig = plt.figure(figsize=(12, 8), constrained_layout=True)
+    gs = fig.add_gridspec(3, 3, height_ratios=[1,1,1], width_ratios=[1,1,1], hspace=0.15, wspace=0.05)
 
-    # Writing image (b) Gaussian along y
-    cv2.imwrite("output_gaussian_y.png", to_u8(convolution_correlation(I, G, "y", True)))
+    # Plotting image (a) Gaussian along x
+    plot_a = fig.add_subplot(gs[0, 0]); show_gray(plot_a, Igx, "(a) Gaussian in x")
 
-    # Writing image (c) derivative along x (Ix)
-    cv2.imwrite("output_deriv_x.png", to_u8(Ix))
+    # Plotting image (b) Gaussian along y
+    plot_b = fig.add_subplot(gs[0, 1]); show_gray(plot_b, Igy, "(b) Gaussian in y")
 
-    # Writing image (d) derivative along y (Iy)
-    cv2.imwrite("output_deriv_y.png", to_u8(Iy))
+    # Plotting image (c) derivative along x (Ix)
+    plot_c = fig.add_subplot(gs[0, 2]); show_gray(plot_c, Ix,  "(c) Gaussian Derivative x (Ix')")
 
-    # Writing image (e) gradient magnitude
-    cv2.imwrite("output_magnitude.png", (M / M.max() * 255).astype(np.uint8))
+    # Plotting image (d) derivative along y (Iy)
+    plot_d = fig.add_subplot(gs[1, 0]); show_gray(plot_d, Iy,  "(d) Gaussian Derivative y (Iy')")
 
-    # Writing image (f) NMS result
-    cv2.imwrite("output_nms.png", (nms / nms.max() * 255).astype(np.uint8))
+    # Plotting image (e) gradient magnitude
+    plot_e = fig.add_subplot(gs[1, 1]); show_gray(plot_e, M,   "(e) Gradient Magnitude")
 
-    # Writing image (g) final hysteresis edges (optional output)
-    cv2.imwrite("output_canny.png", to_u8(canny_result))
+    # Plotting image (f) NMS result
+    plot_f = fig.add_subplot(gs[1, 2]); show_gray(plot_f, nms, "(f) NMS")
+
+    # Plotting image (g) final hysteresis edges (optional output)
+    plot_g = fig.add_subplot(gs[2, :]); show_gray(plot_g, canny_result, "(g) Hysteresis")
+
+    # Plot image layout
+    plt.show()
 
 # Runs the main function at the start of execution
 if __name__ == "__main__":
