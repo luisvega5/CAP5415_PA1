@@ -153,7 +153,7 @@ def to_u8(a: np.ndarray) -> np.ndarray:
     a = (a - mn) / (mx - mn)
     return np.clip(a * 255.0, 0, 255).astype(np.uint8)
 '''
-    Function Name: show_gray
+    Function Name: prep_image
     Description: Utility function to visualize an image in grayscale.
                  Normalizes the input array into the range [0,1] for
                  consistent visualization regardless of its numeric scale,
@@ -164,7 +164,7 @@ def to_u8(a: np.ndarray) -> np.ndarray:
            title (str)        - title string for the subplot
     Output: None (renders the image on the provided axis)
 '''
-def show_gray(ax, img, title):
+def prep_image(ax, img, title):
     img = img.astype(np.float64, copy=False)
     mn, mx = float(img.min()), float(img.max())
     if mx - mn < 1e-12:
@@ -490,25 +490,25 @@ def main():
     gs = fig.add_gridspec(3, 3, height_ratios=[1,1,1], width_ratios=[1,1,1], hspace=0.15, wspace=0.05)
 
     # Plotting image (a) Gaussian along x
-    plot_a = fig.add_subplot(gs[0, 0]); show_gray(plot_a, Igx, "(a) Gaussian in x")
+    plot_a = fig.add_subplot(gs[0, 0]); prep_image(plot_a, Igx, "(a) Gaussian in x")
 
     # Plotting image (b) Gaussian along y
-    plot_b = fig.add_subplot(gs[0, 1]); show_gray(plot_b, Igy, "(b) Gaussian in y")
+    plot_b = fig.add_subplot(gs[0, 1]); prep_image(plot_b, Igy, "(b) Gaussian in y")
 
     # Plotting image (c) derivative along x (Ix)
-    plot_c = fig.add_subplot(gs[0, 2]); show_gray(plot_c, Ix,  "(c) Gaussian Derivative x (Ix')")
+    plot_c = fig.add_subplot(gs[0, 2]); prep_image(plot_c, Ix,  "(c) Gaussian Derivative x (Ix')")
 
     # Plotting image (d) derivative along y (Iy)
-    plot_d = fig.add_subplot(gs[1, 0]); show_gray(plot_d, Iy,  "(d) Gaussian Derivative y (Iy')")
+    plot_d = fig.add_subplot(gs[1, 0]); prep_image(plot_d, Iy,  "(d) Gaussian Derivative y (Iy')")
 
     # Plotting image (e) gradient magnitude
-    plot_e = fig.add_subplot(gs[1, 1]); show_gray(plot_e, M,   "(e) Gradient Magnitude")
+    plot_e = fig.add_subplot(gs[1, 1]); prep_image(plot_e, M,   "(e) Gradient Magnitude")
 
     # Plotting image (f) NMS result
-    plot_f = fig.add_subplot(gs[1, 2]); show_gray(plot_f, nms, "(f) NMS")
+    plot_f = fig.add_subplot(gs[1, 2]); prep_image(plot_f, nms, "(f) NMS")
 
     # Plotting image (g) final hysteresis edges (optional output)
-    plot_g = fig.add_subplot(gs[2, :]); show_gray(plot_g, canny_result, "(g) Hysteresis")
+    plot_g = fig.add_subplot(gs[2, :]); prep_image(plot_g, canny_result, "(g) Hysteresis")
 
     # Plot image layout
     plt.show()
