@@ -13,11 +13,10 @@
     Professor:     Dr. Yogesh Singh Rawat
 
     Description:
-    quantize_orientation_4: maps continuous gradient orientations into
-    four canonical bins (0°, 45°, 90°, 135°).
-    non_maximum_suppression_4dir: thins edges by keeping only local
-    maxima along gradient directions. Ensures precision in edge
-    localization by suppressing weaker, redundant pixels.
+    Maps continuous gradient orientations into
+    four canonical bins and applies Non-Maximum Suppression algorithm to
+    ensures precision in edge localization by suppressing weaker,
+    redundant pixels.
 """
 """---------------------------------------------Imports and Globals--------------------------------------------------"""
 import numpy as np

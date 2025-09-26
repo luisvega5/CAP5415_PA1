@@ -25,7 +25,7 @@
 """
 """---------------------------------------------Imports and Globals--------------------------------------------------"""
 import matplotlib.pyplot as plt
-import GaussiansKernels as gkernel
+import GaussianKernels as gkernel
 import GradientComputation as gcomp
 import Hysteresis as hys
 import NMS as nms
